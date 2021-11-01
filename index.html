@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>My first three.js app</title>
+		<style>
+			body { margin: 0; }
+		</style>
+	</head>
+	<body>
+		<!-- <script src="./three.js"></script> -->
+		<script type="module">
+			// import * as THREE from 'https://raw.githubusercontent.com/mrdoob/three.js/master/build/three.module.js';
+			// import * as THREE from 'https://raw.githubusercontent.com/mrdoob/three.js/master/src/Three.js';
+			// import { GLTFLoader } from 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/jsm/loaders/GLTFLoader.js';
+
+			import * as THREE from 'https://esm.sh/three';
+			import { FBXLoader } from 'https://esm.sh/three/examples/jsm/loaders/FBXLoader';
+			import { OrbitControls } from 'https://esm.sh/three/examples/jsm/controls/OrbitControls.js';
+
+			const models = [{ // 模型
+				url: './models/00a.FBX',
+				name: '主楼',
+				renderOrder: 0
+			}, {
+				url: './models/01BC.FBX',
+				name: '侧楼',
+				renderOrder: 1
+			}, {
+				url: './models/03ABCDEF.FBX',
+				name: '基座',
+				renderOrder: 2
+			}, {
+				url: './models/04SMALLback.FBX',
+				name: '地面',
+				renderOrder: 3
+			}]
+
+			/// 模型加载器
+			const loader = new FBXLoader();
+
+			/// 场景参数设置
+			const scene = new THREE.Scene();
+			scene.background = new THREE.Color(0xeff0f1);
+			// scene.fog = new THREE.Fog( 0xa0a0a0, 10, 50 );
+
+			/// 添加灯光
+			scene.add(new THREE.AmbientLight(0xCDCDCD, 0.8));
+			const directionalLight = new THREE.DirectionalLight(0xA0A0A0, 0.7);
+        	directionalLight.position.set(-492.0100416889744, 156.18150660216926, 146.18276688336508);
+			scene.add(directionalLight);
+
+			/// 坐标轴
+			scene.add(new THREE.AxesHelper(15500)); // 添加坐标轴
+
+			/// render设置
+			const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+			renderer.shadowMap.enabled = true;
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
+
+			/// 相机设置
+			const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 20000);
+			camera.position.set(1525.7667037550109, 1124.8850883038433, 1130.11848061723313);
+        	camera.up.set(0, 1, 0); // 设置朝向
+
+			/// 控制器设置
+			const controls = new OrbitControls(camera, renderer.domElement);
+			controls.maxPolarAngle = Math.PI / 2;
+        	controls.enableDamping = true;
+        	controls.enableRotate = true;
+        	controls.minDistance = 0;
+        	controls.maxDistance = 100000;
+        	controls.dampingFactor = 0.7;
+        	controls.panSpeed = 2;
+        	controls.screenSpacePanning = false;
+        	controls.mouseButtons = {
+				LEFT: THREE.MOUSE.ROTATE,
+				MIDDLE: THREE.MOUSE.DOLLY,
+				RIGHT: THREE.MOUSE.PAN
+			};
+        	controls.target.set(355, 152, 0);
+        	controls.update();
+
+			function animate() {
+				requestAnimationFrame( animate );
+				controls.update();
+				renderer.render( scene, camera );
+			}
+
+			// 模型处理
+			models.forEach((model) => {
+				loader.load(model.url, (object) => { // 加载模型
+					scene.add(object);
+				});
+			});
+
+			animate();
+
+		</script>
+	</body>
+</html>

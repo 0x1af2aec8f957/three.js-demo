@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>3D_点击事件</title>
+		<style>
+			body { margin: 0; }
+		</style>
+	</head>
+	<body>
+		<!-- <script src="./three.js"></script> -->
+		<script type="module">
+			// import * as THREE from 'https://raw.githubusercontent.com/mrdoob/three.js/master/build/three.module.js';
+			// import * as THREE from 'https://raw.githubusercontent.com/mrdoob/three.js/master/src/Three.js';
+			// import { GLTFLoader } from 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/jsm/loaders/GLTFLoader.js';
+
+			/// Object3D 的 event_bus 在: https://github.com/mrdoob/three.js/blob/master/src/core/EventDispatcher.js
+			import * as THREE from 'https://esm.sh/three';
+			import { GLTFLoader } from 'https://esm.sh/three/examples/jsm/loaders/GLTFLoader';
+			import { OrbitControls } from 'https://esm.sh/three/examples/jsm/controls/OrbitControls.js';
+
+			const loader = new GLTFLoader();
+
+			/// 场景设置
+			const scene = new THREE.Scene();
+			scene.background = new THREE.Color( 0xa0a0a0 );
+			scene.add( new THREE.AmbientLight( 0xff0000 ) ); // 环境光
+			scene.fog = new THREE.Fog( 0xa0a0a0, 10, 50 );
+
+			/// 模型及场景加载
+			const geometry = new THREE.PlaneGeometry( 500, 500 );
+			const material = new THREE.MeshBasicMaterial( {color: 0xfffff, side: THREE.DoubleSide} );
+			const plane = new THREE.Mesh( geometry, material );
+			plane.position.set(0, 0, -10);
+			scene.add( plane );
+
+			/// 灯光配置
+			const spotLight = new THREE.SpotLight( 0xffffff );
+			spotLight.angle = Math.PI / 5;
+			spotLight.penumbra = 0.2;
+			spotLight.position.set( 0, 0, 15 );
+			spotLight.castShadow = true;
+			spotLight.shadow.camera.near = 3;
+			spotLight.shadow.camera.far = 10;
+			spotLight.shadow.mapSize.width = 1024;
+			spotLight.shadow.mapSize.height = 1024;
+			scene.add( spotLight );
+
+			/// 灯光配置
+			const dirLight = new THREE.DirectionalLight( 0x55505a, 1 );
+			dirLight.position.set( 0, 0, 15 );
+			dirLight.castShadow = true;
+			dirLight.shadow.camera.near = 1;
+			dirLight.shadow.camera.far = 10;
+			dirLight.shadow.camera.right = 1;
+			dirLight.shadow.camera.left = - 1;
+			dirLight.shadow.camera.top	= 1;
+			dirLight.shadow.camera.bottom = - 1;
+			dirLight.shadow.mapSize.width = 1024;
+			dirLight.shadow.mapSize.height = 1024;
+			scene.add( dirLight );
+
+			/// 相机设置
+			const distance_from_camera = 10; // 相机距离
+			const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 200 );
+			camera.position.set( 0, 0, 15/* 2 * Math.tan( ( Math.PI / 180 ) * camera.fov / 2 ) * distance_from_camera */ );
+			camera.lookAt( 0, 0, 0 );
+
+			/// render设置
+			const renderer = new THREE.WebGLRenderer();
+			renderer.shadowMap.enabled = true;
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			// renderer.setClearColor('red');
+			document.body.appendChild( renderer.domElement );
+
+			const Empty = Object.freeze([]);
+			renderer.clippingPlanes = Empty; // GUI sets it to globalPlanes
+			renderer.localClippingEnabled = true;
+
+			/// 控制器设置
+			const controls = new OrbitControls(camera, renderer.domElement);
+			controls.target.set( 0, 0, 0 );
+
+			/// 点击事件操作
+			const raycaster = new THREE.Raycaster(); // 光线投射,拾取鼠标移过了什么物体
+			const pointer = new THREE.Vector2();
+			renderer.domElement.addEventListener("click", (event) => { // 交互的事件
+				/// 将鼠标位置归一化为设备坐标。x 和 y 方向的取值范围是 (-1 to +1)
+				pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+				pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+				raycaster.setFromCamera(pointer, camera); // 通过摄像机和鼠标位置更新射线
+				const intersects = raycaster.intersectObjects(scene.children, true); // 计算物体和射线的焦点
+				console.log('click event', intersects);
+				if (intersects?.length > 0) {
+					const selectedObject = intersects[0];
+					console.log('selected_object', selectedObject);
+					selectedObject.object.material.color.setHex(0xffff000);
+					selectedObject.object.geometry.colorsNeedUpdate = true;
+				}
+			}, true);
+
+			function animate() {
+				requestAnimationFrame( animate );
+				// cube.rotation.x += 0.01;
+				// cube.rotation.y += 0.01;
+				controls.update();
+				renderer.render( scene, camera );
+			}
+
+			loader.load( './module-test.gltf', function ( gltf ) {
+				// console.log('gltf模型文件', gltf);
+				scene.add(gltf.scene);
+				dirLight.target = gltf.scene;
+				spotLight.target = gltf.scene;
+
+				animate();
+			}, undefined, function ( error ) {
+				console.error('模型加载错误', error);
+			} );
+		</script>
+	</body>
+</html>

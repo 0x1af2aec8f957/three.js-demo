@@ -1,0 +1,1 @@
+<script>(function(f){var e=f.sessionStorage;if(e){e.CUSTOMER_WEB_MONITOR_ID="webfunny_20211018_152258";var d=document.createElement("script");d.async=1;d.src="//localhost:8010/webfunny/w.js";var g=document.getElementsByTagName("script")[0];g.parentNode.insertBefore(d,g)}})(window);</script>
