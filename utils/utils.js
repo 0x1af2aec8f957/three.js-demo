@@ -1,7 +1,7 @@
 import * as THREE from 'https://esm.sh/three';
 
 export function getCenterByObject3D(object/* : THREE.Object3D */){ // 获取 Object3D 对象的中心点
-    return getBoundingBoxByObject3D(object).getCenter(new THREE.Vector3());
+    return getBoundingBoxByObject3D(object).getCenter(new THREE.Vector3()).clone();
 }
 
 export function toggleObject3DVisible(object/* : THREE.Object3D */, visible/* : Boolean */){ // Object3D 对象的显示与隐藏切换
@@ -57,7 +57,7 @@ export function showBoundingBoxOutlineByObject3D(object /* : THREE.Object3D */, 
     scene.add(cube);
 }
 
-export function showBrushStrokesBuyBufferGeometry(geometry/* : THREE.BuffergGeometry */, color /* THREE.Color_Hex_or_String */, offset = 0.00328083989501/* : number */){ // 绘制描边
+export function showBrushStrokesBuyBufferGeometry(geometry/* : THREE.BuffergGeometry */, color /* THREE.Color_Hex_or_String */, offset = 0.00328083989501/* : number */){ // 绘制描边（跟THREE.OutlinePass是两个概念）
     // const vertices = geometry.attributes.position.array; // 顶点数据
 
     // const vector3Vertices = new THREE.Float32BufferAttribute( vertices, 3 )// Vector3格式的顶点数据
@@ -68,7 +68,7 @@ export function showBrushStrokesBuyBufferGeometry(geometry/* : THREE.BuffergGeom
     // }, new THREE.Shape());
 
     const cubeEdges = new THREE.EdgesGeometry(geometry, 1); // 边缘辅助对象
-    const lineMaterial = new THREE.LineBasicMaterial( { color: color } );
+    const lineMaterial = new THREE.LineBasicMaterial( { color: color, fog: false, needsUpdate: true, side: THREE.DoubleSide } );
     
     return new THREE.LineSegments( cubeEdges, lineMaterial );
     // return new THREE.Line( geometry, lineMaterial );
@@ -84,14 +84,14 @@ export function moveCameraByObject3D(camera/*: THREE.Camera */, object /* : THRE
     control.update();
 
     const distance = boundingSphere.radius / Math.tan(camera.fov / 2); // 摄像机距离中心点的坐标
-    const directionVec = normalizeVector?.normalize() ?? boundingSphere.center.normalize(); // 获得方向向量
+    const directionVec = normalizeVector?.clone().normalize() ?? boundingSphere.center.clone().normalize(); // 获得方向向量
     const cameraVec = boundingSphere.center.clone().add(new THREE.Vector3(distance + distanceOffset, 0, 0));
     camera.position.copy(cameraVec);
     // camera.position.copy(camera.getWorldDirection().normalize().negate().clone().multiplyScalar(boundingSphere.radius * 2).clone().add(boundingSphere.center));
 
     // TODO
-    const angleA = boundingBox.max.angleTo(directionVec);
-    const angleB = boundingBox.min.angleTo(directionVec);
+    // const angleA = boundingBox.max.angleTo(directionVec);
+    // const angleB = boundingBox.min.angleTo(directionVec);
 }
 
 

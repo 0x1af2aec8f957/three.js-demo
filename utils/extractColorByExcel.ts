@@ -34,11 +34,17 @@ const colorJson = jsonData.reduce((acc, cur) => { // color提取
     const codeArray = xlsxValueArray.filter((value) => isEncoded(value)); // 编码
     const colorArray = xlsxValueArray.filter((value) => isHexColor(value)); // 颜色色值
 
-    if (isNotArrayEmpty(codeArray) && isNotArrayEmpty(colorArray)) {
-        acc[codeArray.pop() as string] = colorArray.pop() as string;
-    }
 
-    return acc;
+    return isNotArrayEmpty(codeArray) && isNotArrayEmpty(colorArray) ? codeArray.reduce((_acc, code, index) => {
+        _acc[code] = colorArray[index];
+        return _acc;
+    }, acc) : acc;
+
+    // if (isNotArrayEmpty(codeArray) && isNotArrayEmpty(colorArray)) {
+    //     acc[codeArray.pop() as string] = colorArray.pop() as string;
+    // }
+
+    // return acc;
 }, Object.create(null) as {
     [key: string] /* 编码 */: string /* 颜色色值 */
 });

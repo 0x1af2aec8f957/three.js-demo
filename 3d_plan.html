@@ -20,6 +20,7 @@
 	<body>
 		<!-- <script src="./three.js"></script> -->
 		<script type="module">
+            /// https://github.com/sshirokov/ThreeBSP 可以支持求模型数据的差集、并集、交集
 			import * as THREE from 'https://esm.sh/three'; // threejs
 			import { FBXLoader } from 'https://esm.sh/three/examples/jsm/loaders/FBXLoader'; // 模型加载器
 			import { OrbitControls } from 'https://esm.sh/three/examples/jsm/controls/OrbitControls.js'; // 控制器
@@ -117,7 +118,7 @@
             camera.up.set(0, 0, 1);
             camera.updateProjectionMatrix();
 
-            /// 效果组合器设置，主要针对外轮廓
+            /// 效果组合器设置，主要针对外轮廓 OutlinePass
             const composer = new EffectComposer( renderer ); // 效果组合器
             const renderPass = new RenderPass( scene, camera );
             composer.setSize( window.innerWidth, window.innerHeight );
@@ -147,17 +148,37 @@
 
             /// 设置灯光+背景色
             scene.background = new THREE.Color(0xeff0f1);
-            scene.add(new THREE.AmbientLight(0xCDCDCD, 0.8));
-            const DirectionalLight = new THREE.DirectionalLight(0xA0A0A0, 0.7);
-            DirectionalLight.position.set(-492.0100416889744, 156.18150660216926, 146.18276688336508);
-            scene.add(DirectionalLight);
-            
+            // scene.add(new THREE.AmbientLight(0xCDCDCD, 0.8));
+            scene.add(new THREE.AmbientLight(0xFFFFFF, 1)); // 设置环境光
+            const directionalLight = new THREE.DirectionalLight(0xA0A0A0, 0.7); // 设置平行光
+            directionalLight.castShadow = true; // 开启投影
+            // directionalLight.position.set(-492.0100416889744, 156.18150660216926, 146.18276688336508);
+            scene.add(directionalLight);
+
             /// 外轮廓
             const outlinePass = new OutlinePass( new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera ); //轮廓通道
             outlinePass.visibleEdgeColor.setHex(0xFF3C3B3C);
             outlinePass.hiddenEdgeColor.setHex(0xFF656B72);
             outlinePass.edgeStrength = 10;
             composer.addPass(outlinePass);
+
+            /// 模型之间的连线
+            function createLineByVector(pointStart/* :  THREE.Vector3[] */, pointEnd/* :  THREE.Vector3[] */) { // 点连线
+                // const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial( { color: 0x0000ff, linewidth: 1 } );
+
+                const geometry = new THREE.BufferGeometry();
+                // const curve = new THREE.LineCurve3(...points);
+                // const curve = new THREE.CatmullRomCurve3([pointStart , pointEnd.clone().sub(pointStart).divideScalar(2), pointEnd]);
+                const curve = new THREE.QuadraticBezierCurve3(pointStart , pointStart.clone().add(pointEnd).divideScalar(2).add(new THREE.Vector3().setZ(50)), pointEnd);
+                console.log('curve', curve);
+                // const curve = new THREE.CubicBezierCurve3(...points);
+                const _points = curve.getPoints(100);
+                geometry.setFromPoints(_points);
+
+                const line = new THREE.Line( geometry, material );
+                scene.add( line );
+            }
 
             /// 点击事件操作
             let oldSelectedObject = []; // 记录上次选中 [对象, 颜色] 的元组类型的数据
@@ -170,19 +191,30 @@
                 const intersects = raycaster.intersectObjects(scene.children, true); // 计算物体和射线的焦点
 				if (intersects?.length > 0) {
 					const selectedObject = intersects[0]?.object;
+                    if (selectedObject.geometry?.type !== 'ExtrudeGeometry') return; // 只能点击线框模型
                     if (selectedObject.ID === 2495598790304) return; // 如果是地面模型，不接受该点击事件
                     if (selectedObject.ID === 2495598810032) return; // 如果是墙面模型，不接受该点击事件
 
                     if (oldSelectedObject.length > 0) {
                         oldSelectedObject[0].children.filter(({name, isCSS2DObject = false /* threejs@0.124.0 没有该属性 */}) => name === 'labelText' && isCSS2DObject).forEach((object) => toggleObject3DVisible(object));
-                        oldSelectedObject[0].material.color.setHex(oldSelectedObject[1]);
+                        oldSelectedObject[0].material.color?.setHex(oldSelectedObject[1]);
                         oldSelectedObject[0].geometry.colorsNeedUpdate = true;
                     }
 
 					console.log('selected_object', selectedObject);
-                    oldSelectedObject = [selectedObject, selectedObject.material.color.getHex()]; // 记录选中对象及颜色
+					console.log('selected_object-color', selectedObject.material.color?.getHex());
+					console.log('selected_object-treeNodeCode', selectedObject.userData.json?.treeNodeCode);
+                    if (oldSelectedObject.length) {
+                        const oldCenterVec = getCenterByObject3D(oldSelectedObject[0]);
+                        const centerVec = getCenterByObject3D(selectedObject);
+                        console.log(oldCenterVec, centerVec);
+                        
+                        createLineByVector(...[oldCenterVec, centerVec].map((vec) => vec.setZ(selectedObject.geometry.parameters.options.depth + 1)));
+                    }
+                    
+                    oldSelectedObject = [selectedObject, selectedObject.material.color?.getHex()]; // 记录选中对象及颜色
                     selectedObject.children.filter(({name, isCSS2DObject = false /* threejs@0.124.0 没有该属性 */}) => name === 'labelText' && isCSS2DObject).forEach((object) => toggleObject3DVisible(object));
-					selectedObject.material.color.setHex(0xffff000);
+					selectedObject.material.color?.setHex(0xffff000);
                     selectedObject.geometry.colorsNeedUpdate = true;
 				}
 			}, true);
@@ -249,20 +281,35 @@
                 spaces.records.forEach(({ outline, spaceName, ...other }, index) => {
                     if (!outline?.length) return;
 
-                    const shape = outline[0][0].reduce((shapes, _outline, idx) => { // 构建设备外轮廓线
-                        shapes[idx === 0 ? 'moveTo' : 'lineTo'](_outline.X * 0.00328083989501, _outline.Y * 0.00328083989501);
-                        return shapes;
-                    }, new THREE.Shape());
+                    const [points] = outline;
+                    const [outlinePoints = [] /* 单个外轮廓点的集合 */, ...holePoints /* 所有内轮廓点的集合 */] = points;
 
-                    const geometry = new THREE.ExtrudeBufferGeometry(shape, { // 构建设备box
+                    const outlineShape = outlinePoints.reduce((shape, point, index) => { // 外轮廓shape
+                        const pointVec = new THREE.Vector2(point.X * 0.00328083989501, point.Y * 0.00328083989501);
+                        shape[index === 0 ? 'moveTo' : 'lineTo'](pointVec.x, pointVec.y);
+                        return shape;
+                    },new THREE.Shape());
+
+                    const holeShapes = holePoints.map((_holePoints) => _holePoints.reduce((shape, point, index) => { // 内轮廓shape集合
+                        const pointVec = new THREE.Vector2(point.X * 0.00328083989501, point.Y * 0.00328083989501);
+                        shape[index === 0 ? 'moveTo' : 'lineTo'](pointVec.x, pointVec.y);
+                        return shape;
+                    }, new THREE.Shape()));
+
+                    outlineShape.holes.push(...holeShapes); // 在外轮廓中放置内轮廓（挖孔）
+
+                    const geometry = new THREE.ExtrudeBufferGeometry(outlineShape, { // 构建空间box
                         steps: 1,
                         depth: 20,
                         bevelEnabled: false
                     });
 
                     // console.log('geometry-json数据', geometry.toJSON());
-
-                    const mesh = new THREE.Mesh(geometry, colors['treeNodeCode'] ?? getMaterial(index)); // 设置设备材质
+                    console.log('space.treeNodeCode', other.treeNodeCode);
+                    console.log('spac.color', colors[other.treeNodeCode]);
+                    const mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({
+                            color: colors[other.treeNodeCode]
+                        }) /* : getMaterial(index) */); // 设置设备材质
                     mesh.userData = {...mesh.userData, json: other}; // 用户数据
                     meshGroup.add(mesh);
 
@@ -281,32 +328,38 @@
                 const boundingBox = new THREE.Box3().setFromObject(meshGroup);
                 const boundingSize = boundingBox.getSize(new THREE.Vector3());
                 const boundingCenter = boundingBox.getCenter(new THREE.Vector3());
+
                 console.log('boundingCenter', boundingCenter);
-                console.log('boundingCenter.normalize', boundingCenter.normalize());
-                console.log('boundingCenter.normalize', boundingCenter.normalize().normalize());
+                console.log('boundingCenter.normalize', boundingCenter.clone().normalize());
                 /// 添加平面（地板）到场景
                 const planeGeometry = new THREE.PlaneGeometry(boundingSize.x, boundingSize.y);
                 // console.log('planeGeometry', planeGeometry);
-                const planeMaterial = new THREE.MeshLambertMaterial({map: THREE.ImageUtils.loadTexture("./images/floor-board.png")}); // 添加贴图纹理
+                const planeMaterial = new THREE.MeshLambertMaterial({color: 0xFFFFFF}); // 设置颜色
                 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-                plane.position.copy(boundingCenter.clone().setZ(0)); // 和 translate 有同样的功效，但是第二次赋值时会覆盖
+                plane.receiveShadow = true;
+                plane.position.copy(boundingCenter.clone().setZ(-1)); // 和 translate 有同样的功效，但是第二次赋值时会覆盖
                 // planeGeometry.translate(boundingCenter.x, boundingCenter.y, 0 /* boundingCenter.z */); // 移动物体到模型组的中心位置，第二次使用是基于第一次的位置进行计算的
-                // console.log('plane', plane);
-                // scene.add(plane);
+                console.log('plane', plane);
+                directionalLight.position.set(plane.up.clone().setZ(-1)); // 设置平行光方向
+                scene.add(plane);
 
                 const wrapPlane = deepCopyByObject3D(plane); // TODO 这里克隆后，下面的mesh、geometry并没有克隆（修改后原有的属性也会被修改）
                 // wrapPlane.updateMatrixWorld();
+                console.log('wrapPlane', wrapPlane);
+                wrapPlane.material.map = THREE.ImageUtils.loadTexture("./images/floor-board.png");  // 添加贴图纹理
+                wrapPlane.receiveShadow = true; // 接收投影
                 wrapPlane.applyMatrix4(new THREE.Matrix4().multiplyScalar(3)); // 将x,z轴同比放大3倍
 
                 // const _boundingCenter = boundingCenter.clone().divideScalar(3); // 经过矩阵变化后中心点也被放大了3倍，这里主要处理的是重置中心点位置。
                 // wrapPlane.geometry.translate(_boundingCenter.x, _boundingCenter.y, 0 /* boundingCenter.z */); // 移动中心点
 
-                // console.log('center-wrapPlane', new THREE.Box3().setFromObject(wrapPlane).getCenter(new THREE.Vector3()));
-                // console.log('center-plane', new THREE.Box3().setFromObject(plane).getCenter(new THREE.Vector3()));
-                // console.log('center-meshGroup', boundingCenter);
-                wrapPlane.position.copy(plane.position);
+                console.log('center-wrapPlane', new THREE.Box3().setFromObject(wrapPlane).getCenter(new THREE.Vector3()));
+                console.log('center-plane', new THREE.Box3().setFromObject(plane).getCenter(new THREE.Vector3()));
+                console.log('center-meshGroup', boundingCenter);
+                wrapPlane.position.copy(boundingCenter.clone().setZ(-2));
                 scene.add(wrapPlane);
-
+                console.log('center-wrapPlane', new THREE.Box3().setFromObject(wrapPlane).getCenter(new THREE.Vector3()));
+                console.log('wrapPlane-position', wrapPlane.position);
                 animate(); // 执行渲染动画
             });
 
