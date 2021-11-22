@@ -63,7 +63,7 @@
 
 			const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 200 );
 			camera.position.set( 0, 0, 15/* 2 * Math.tan( ( Math.PI / 180 ) * camera.fov / 2 ) * distance_from_camera */ );
-			camera.lookAt( 0, 0, 0 );
+			// camera.lookAt( 0, 0, 0 ); // 摄像机的朝向，control.target设置后无需设置
 			console.log(camera);
 
 			const renderer = new THREE.WebGLRenderer();

@@ -94,7 +94,6 @@ export function moveCameraByObject3D(camera/*: THREE.Camera */, object /* : THRE
     // const angleB = boundingBox.min.angleTo(directionVec);
 }
 
-
 export function deepCopyByObject3D(object /* : THREE.Object3D */) { // 深拷贝 Object3D(Mesh) 对象
     if (object.type === 'Mesh') {
         return new THREE.Mesh(object.geometry.clone(), object.material.clone());
